@@ -24,7 +24,7 @@ struct shfs_dir_entry {
 	__le32 type;
 	__le32 len;
 	char name[16];
-}
+};
 
 #endif
 

@@ -8,9 +8,9 @@
 #include "shfs.h"
 
 #define P_MSG(fmt, args...)     \
-	printk(KERN_INFO "shfs: [%s:%d] " fmt "\n", __FUNCTION__, __LINE__, ##args);
+	printk(KERN_INFO "shfs: [%s:%d] " fmt "\n", __FUNCTION__, __LINE__, ##args)
 #define P_ERR(fmt, args...)     \
-	printk(KERN_ERR "shfs: [%s:%d] " fmt "\n", __FUNCTION__, __LINE__, ##args);
+	printk(KERN_ERR "shfs: [%s:%d] " fmt "\n", __FUNCTION__, __LINE__, ##args)
 
 struct inode *shfs_iget(struct super_block *sb, unsigned long ino)
 {
@@ -39,7 +39,7 @@ struct inode *shfs_iget(struct super_block *sb, unsigned long ino)
 static int shfs_fill_super(struct super_block *sb, void *data, int silent)
 {
 	struct buffer_head *bh;
-	//struct shfs_disk_super *disk_super;
+	struct shfs_disk_super *disk_super;
 	struct shfs_mem_super *mem_super;
 	struct inode *root;
 	int err;
@@ -54,12 +54,20 @@ static int shfs_fill_super(struct super_block *sb, void *data, int silent)
 	mem_super->block_size = 4096;
 	sb->s_fs_info = mem_super;
 
-	bh = sb_bread(sb, mem_super->block_size);
+	bh = sb_bread(sb, 0);
 	if (!bh) {
 		P_ERR("error reading super block from disk");
 		err = -EIO;
 		goto err_super;
 	}
+
+	disk_super = (struct shfs_disk_super *)(bh->b_data);
+	P_MSG("%d %d %d %d %d", le32_to_cpu(disk_super->magic),
+			le32_to_cpu(disk_super->block_size),
+			le32_to_cpu(disk_super->block_bitmap),
+			le32_to_cpu(disk_super->inode_bitmap),
+			le32_to_cpu(disk_super->inode_table)
+	);
 
 	root = shfs_iget(sb, SHFS_ROOT_INO);
 	if (IS_ERR(root)) {
