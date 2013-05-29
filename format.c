@@ -20,6 +20,15 @@ struct shfs_disk_super {
 	uint32_t inode_table;
 };
 
+struct shfs_inode {
+	uint32_t uid;
+	uint32_t gid;
+	uint16_t type;
+	uint16_t perm;
+	uint32_t create_time;
+	uint32_t blk_ptr[4];
+};
+
 struct shfs_dir_entry {
 	uint32_t inode;
 	uint32_t size;
@@ -136,7 +145,7 @@ int write_inode_bitmap(void)
 
 int write_inode_table(void)
 {
-	struct shfs_dir_entry inode_table[128] = {0};
+	struct shfs_inode inode_table[128] = {0};
 	int c;
 
 	/* Seek to block 3 */

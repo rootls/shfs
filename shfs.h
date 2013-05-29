@@ -18,6 +18,15 @@ struct shfs_mem_super {
 	int inode_table;
 };
 
+struct shfs_inode {
+	__le32 uid;
+	__le32 gid;
+	__le16 type;
+	__le16 perm;
+	__le32 create_time;
+	__le32 blk_ptr[4];
+};
+
 struct shfs_dir_entry {
 	__le32 inode;
 	__le32 size;
