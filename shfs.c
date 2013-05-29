@@ -69,6 +69,17 @@ static int shfs_fill_super(struct super_block *sb, void *data, int silent)
 			le32_to_cpu(disk_super->inode_table)
 	);
 
+	if (le32_to_cpu(disk_super->block_size) != 4096) {
+		P_ERR("invalid block size");
+		err = -EIO;
+		goto err_blk_size;
+	}
+
+	mem_super->block_size = 4096;
+	mem_super->block_bitmap = le32_to_cpu(disk_super->block_bitmap);
+	mem_super->inode_bitmap = le32_to_cpu(disk_super->inode_bitmap);
+	mem_super->inode_table = le32_to_cpu(disk_super->inode_table);
+
 	root = shfs_iget(sb, SHFS_ROOT_INO);
 	if (IS_ERR(root)) {
 		P_ERR("failed to get root inode");
@@ -94,10 +105,11 @@ static int shfs_fill_super(struct super_block *sb, void *data, int silent)
 	return 0;
 
 err_s_root:
-	brelse(bh);
 err_i_mode:
-err_iget:
 	iput(root);
+err_iget:
+err_blk_size:
+	brelse(bh);
 err_super:
 	kfree(mem_super);
 err_mem_super:
