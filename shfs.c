@@ -12,10 +12,17 @@
 #define P_ERR(fmt, args...)     \
 	printk(KERN_ERR "shfs: [%s:%d] " fmt "\n", __FUNCTION__, __LINE__, ##args)
 
-struct inode *shfs_iget(struct super_block *sb, unsigned long ino)
+struct inode *shfs_iget(struct super_block *sb, int ino)
 {
 	struct inode *inode;
+	struct shfs_mem_super *mem_super;
+	struct shfs_inode *shinode;
+	struct buffer_head *bh;
+	int blknum;
+	int offset;
 	P_MSG();
+
+	mem_super = (struct shfs_mem_super *)sb->s_fs_info;
 
 	inode = iget_locked(sb, ino);
 	if (!inode)
@@ -23,15 +30,29 @@ struct inode *shfs_iget(struct super_block *sb, unsigned long ino)
 	if (!(inode->i_state & I_NEW))
 		return inode;
 
-	inode->i_mode = 0040000;	/* Directory */
-	inode->i_uid = 0;
-	inode->i_gid = 0;
-	inode->i_size = 0;
-	inode->i_atime.tv_sec = 0;
-	inode->i_ctime.tv_sec = 0;
-	inode->i_mtime.tv_sec = 0;
-	inode->i_atime.tv_nsec = 0;
+	blknum = mem_super->inode_table + (ino * sizeof(struct shfs_inode) / mem_super->block_size);
+	offset = ino * sizeof(struct shfs_inode) / mem_super->block_size;
+	bh = sb_bread(sb, blknum);
+	if (!bh) {
+		P_ERR("error reading inode block");
+		iget_failed(inode);
+		return ERR_PTR(-EIO);
+	}
+	shinode = (struct shfs_inode *)(bh->b_data + offset);
 
+	inode->i_mode = le16_to_cpu(shinode->mode);
+	inode->i_uid = le16_to_cpu(shinode->uid);
+	inode->i_gid = le16_to_cpu(shinode->gid);
+	inode->i_size = le16_to_cpu(shinode->size);
+	inode->i_atime.tv_sec = le32_to_cpu(shinode->time);
+	inode->i_ctime.tv_sec = le32_to_cpu(shinode->time);
+	inode->i_mtime.tv_sec = le32_to_cpu(shinode->time);
+	inode->i_atime.tv_nsec = le32_to_cpu(shinode->time);
+
+	P_MSG("%d %d %d %d: %d %d", inode->i_mode, inode->i_uid, inode->i_gid,
+			inode->i_size, blknum, offset);
+
+	brelse(bh);
 	unlock_new_inode(inode);
 	return inode;
 }

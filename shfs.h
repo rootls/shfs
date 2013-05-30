@@ -19,11 +19,13 @@ struct shfs_mem_super {
 };
 
 struct shfs_inode {
-	__le32 uid;
-	__le32 gid;
-	__le16 type;
+	__le16 uid;
+	__le16 gid;
+	__le16 mode;
+	__le16 size;
 	__le16 perm;
-	__le32 create_time;
+	__le16 dummy;
+	__le32 time;
 	__le32 blk_ptr[4];
 };
 

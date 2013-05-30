@@ -21,11 +21,13 @@ struct shfs_disk_super {
 };
 
 struct shfs_inode {
-	uint32_t uid;
-	uint32_t gid;
-	uint16_t type;
+	uint16_t uid;
+	uint16_t gid;
+	uint16_t mode;
+	uint16_t size;
 	uint16_t perm;
-	uint32_t create_time;
+	uint16_t dummy;
+	uint32_t time;
 	uint32_t blk_ptr[4];
 };
 
@@ -147,6 +149,18 @@ int write_inode_table(void)
 {
 	struct shfs_inode inode_table[128] = {0};
 	int c;
+
+	inode_table[0].uid = 1;
+	inode_table[0].gid = 1;
+	inode_table[0].mode = 0x4000;
+	inode_table[0].size = 10;
+	inode_table[0].perm = 1;
+	inode_table[0].dummy = 0;
+	inode_table[0].time = 123;
+	inode_table[0].blk_ptr[0] = 10;
+	inode_table[0].blk_ptr[1] = 11;
+	inode_table[0].blk_ptr[2] = 12;
+	inode_table[0].blk_ptr[3] = 13;
 
 	/* Seek to block 3 */
 	if (lseek(fd, 3 * 4096, 0) < 0) {
