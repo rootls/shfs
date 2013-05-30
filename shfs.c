@@ -12,6 +12,20 @@
 #define P_ERR(fmt, args...)     \
 	printk(KERN_ERR "shfs: [%s:%d] " fmt "\n", __FUNCTION__, __LINE__, ##args)
 
+const struct file_operations shfs_dir_fops = {
+	.read		= generic_read_dir,
+//	.readdir	= shfs_readdir,
+//	.release	= shfs_release,
+};
+
+const struct inode_operations shfs_dir_iops = {
+//	.create		= shfs_create,
+//	.lookup		= shfs_lookup,
+//	.mkdir		= shfs_mkdir,
+//	.rmdir		= shfs_rmdir,
+//	.rename		= shfs_rename,
+};
+
 struct inode *shfs_iget(struct super_block *sb, int ino)
 {
 	struct inode *inode;
@@ -49,8 +63,20 @@ struct inode *shfs_iget(struct super_block *sb, int ino)
 	inode->i_mtime.tv_sec = le32_to_cpu(shinode->time);
 	inode->i_atime.tv_nsec = le32_to_cpu(shinode->time);
 
-	P_MSG("%d %d %d %d: %d %d", inode->i_mode, inode->i_uid, inode->i_gid,
-			inode->i_size, blknum, offset);
+	//P_MSG("%d %d %d %d: %d %d", inode->i_mode, inode->i_uid, inode->i_gid,
+	//		inode->i_size, blknum, offset);
+
+	/* setup directory and file operations */
+	if (S_ISREG(inode->i_mode)) {
+		inode->i_op = &shfs_dir_iops;
+		inode->i_fop = &shfs_dir_fops;
+	} else if (S_ISDIR(inode->i_mode)) {
+	} else {
+		P_ERR("invalid inode");
+		brelse(bh);
+		iget_failed(inode);
+		return ERR_PTR(-EIO);
+	}
 
 	brelse(bh);
 	unlock_new_inode(inode);
