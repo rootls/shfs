@@ -12,10 +12,31 @@
 #define P_ERR(fmt, args...)     \
 	printk(KERN_ERR "shfs: [%s:%d] " fmt "\n", __FUNCTION__, __LINE__, ##args)
 
+
+static int shfs_readdir(struct file *fp, void *dirent, filldir_t filldir)
+{
+	struct inode *dir = fp->f_dentry->d_inode;
+	struct shfs_inode *shinode = (struct shfs_inode *)dir->i_private;
+	int size = shinode->size;
+	P_MSG();
+
+	P_MSG("%d %d %d %d", shinode->blk_ptr[0], shinode->uid, shinode->gid, shinode->mode);
+	if (fp->f_pos >= size)
+		return 0;
+
+	return 0;
+}
+
+static int shfs_release(struct inode *dir, struct file *fp)
+{
+	P_MSG();
+	return 0;
+}
+
 const struct file_operations shfs_dir_fops = {
 	.read		= generic_read_dir,
-//	.readdir	= shfs_readdir,
-//	.release	= shfs_release,
+	.readdir	= shfs_readdir,
+	.release	= shfs_release,
 };
 
 const struct inode_operations shfs_dir_iops = {
@@ -44,15 +65,23 @@ struct inode *shfs_iget(struct super_block *sb, int ino)
 	if (!(inode->i_state & I_NEW))
 		return inode;
 
+	shinode = kmalloc(sizeof(struct shfs_inode), GFP_KERNEL);
+	if (!shinode) {
+		P_ERR("failed to allocate memory for shfs_inode");
+		iget_failed(inode);
+		return ERR_PTR(-EIO);
+	}
+
 	blknum = mem_super->inode_table + (ino * sizeof(struct shfs_inode) / mem_super->block_size);
 	offset = ino * sizeof(struct shfs_inode) / mem_super->block_size;
 	bh = sb_bread(sb, blknum);
 	if (!bh) {
 		P_ERR("error reading inode block");
+		kfree(shinode);
 		iget_failed(inode);
 		return ERR_PTR(-EIO);
 	}
-	shinode = (struct shfs_inode *)(bh->b_data + offset);
+	memcpy(shinode, bh->b_data + offset, sizeof(struct shfs_inode));
 
 	inode->i_mode = le16_to_cpu(shinode->mode);
 	inode->i_uid = le16_to_cpu(shinode->uid);
@@ -62,19 +91,21 @@ struct inode *shfs_iget(struct super_block *sb, int ino)
 	inode->i_ctime.tv_sec = le32_to_cpu(shinode->time);
 	inode->i_mtime.tv_sec = le32_to_cpu(shinode->time);
 	inode->i_atime.tv_nsec = le32_to_cpu(shinode->time);
+	inode->i_private = shinode;
 
 	//P_MSG("%d %d %d %d: %d %d", inode->i_mode, inode->i_uid, inode->i_gid,
 	//		inode->i_size, blknum, offset);
 
 	/* setup directory and file operations */
 	if (S_ISREG(inode->i_mode)) {
+	} else if (S_ISDIR(inode->i_mode)) {
 		inode->i_op = &shfs_dir_iops;
 		inode->i_fop = &shfs_dir_fops;
-	} else if (S_ISDIR(inode->i_mode)) {
 	} else {
 		P_ERR("invalid inode");
-		brelse(bh);
+		kfree(shinode);
 		iget_failed(inode);
+		brelse(bh);
 		return ERR_PTR(-EIO);
 	}
 
